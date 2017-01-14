@@ -6,4 +6,4 @@ python setup.py install
 
 cd ../
 
-python basic.py de504dc5763aeef9ff52
+python basic.py
