@@ -22,13 +22,22 @@ global pusher
 def print_usage(filename):
   print("Usage: python %s" % filename)
 
+import pickle
+import pdb
+import numpy
 def channel_callback(data):
   time = datetime.now().strftime('%Y_%m_%d_%H_%M_%S')
-  with open('data_'+time+'.txt', 'w') as outfile:
-    json.dump(data, outfile)
+  #with open('data_'+time+'.txt', 'w') as outfile:
+  #  json.dump(data, outfile)
   print("Channel Callback: %s" % data)
-  #print time
-
+  d = json.loads(data)
+  bids_prices = [float(d['bids'][i][0]) for i in range(len(d['bids']))]
+  bids_amounts = [float(d['bids'][i][1]) for i in range(len(d['bids']))]
+  asks_prices = [float(d['asks'][i][0]) for i in range(len(d['asks']))]
+  asks_amounts = [float(d['asks'][i][1]) for i in range(len(d['asks']))]
+  new_dict = {'bids_prices':bids_prices,'bids_amounts':bids_amounts,'asks_prices':asks_prices,'asks_amounts':asks_amounts}
+  with open('data_'+time+'.p', 'wb') as outfile:
+    pickle.dump(new_dict, outfile, protocol=pickle.HIGHEST_PROTOCOL)
 
 def connect_handler(data):
   channel = pusher.subscribe("order_book")
