@@ -4,6 +4,7 @@ import sys
 sys.path.append('PythonPusherClient')
 
 import time
+from datetime import datetime
 
 import pusherclient
 
@@ -14,33 +15,36 @@ root.setLevel(logging.INFO)
 ch = logging.StreamHandler(sys.stdout)
 root.addHandler(ch)
 
+import json
+
 global pusher
 
 def print_usage(filename):
-    print("Usage: python %s <appkey>" % filename)
+  print("Usage: python %s" % filename)
 
 def channel_callback(data):
-    print("Channel Callback: %s" % data)
+  time = datetime.now().strftime('%Y_%m_%d_%H_%M_%S')
+  with open('data_'+time+'.txt', 'w') as outfile:
+    json.dump(data, outfile)
+  print("Channel Callback: %s" % data)
+  #print time
+
 
 def connect_handler(data):
-    channel = pusher.subscribe("order_book")
+  channel = pusher.subscribe("order_book")
 
-    channel.bind('my_event', channel_callback)
-    
+  #channel.bind('my_event', channel_callback)
+  channel.bind('data', channel_callback)
+  
 
 if __name__ == '__main__':
-    if len(sys.argv) != 2:
-        print_usage(sys.argv[0])
-        sys.exit(1)
+  appkey = "de504dc5763aeef9ff52"
 
-    appkey = sys.argv[1]
-    #appkey = "de504dc5763aeef9ff52"
+  pusher = pusherclient.Pusher(appkey)
 
-    pusher = pusherclient.Pusher(appkey)
+  pusher.connection.bind('pusher:connection_established', connect_handler)
+  #pusher.connection.bind('trade', connect_handler)
+  pusher.connect()
 
-    pusher.connection.bind('pusher:connection_established', connect_handler)
-    #pusher.connection.bind('trade', connect_handler)
-    pusher.connect()
-
-    while True:
-        time.sleep(1)
+  while True:
+    time.sleep(1)
