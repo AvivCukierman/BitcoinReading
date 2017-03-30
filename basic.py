@@ -37,6 +37,10 @@ if opts.stream=='diff_order_book':
   opts.event='data'
   opts.submitDir = 'diff_order_book'
 
+if not os.path.exists(opts.submitDir):
+  print '== Making folder \''+opts.submitDir+'\' =='
+  os.makedirs(opts.submitDir)
+
 global pusher
 
 def print_usage(filename):
