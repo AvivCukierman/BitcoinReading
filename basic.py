@@ -2,11 +2,11 @@
 
 import sys
 sys.path.append('PythonPusherClient')
+import os
 
 import time
-from datetime import datetime
-
 import pusherclient
+import json
 
 # Add a logging handler so we can see the raw communication data
 import logging
@@ -15,7 +15,27 @@ root.setLevel(logging.INFO)
 ch = logging.StreamHandler(sys.stdout)
 root.addHandler(ch)
 
-import json
+from optparse import OptionParser
+parser = OptionParser()
+parser.add_option("-s", "--stream", dest="stream",help="which stream to store")
+parser.add_option("-t", "--time_diff", dest="time_diff",help="how long before saving", type=int, default=5)
+parser.add_option("-q", "--quiet",action="store_true", dest="quiet", default=False,help="don't print things")
+(opts, args) = parser.parse_args()
+
+if opts.stream not in ['order_book','live_trades','diff_order_book']:
+  raise RuntimeError('Not a valid stream.')
+if opts.stream=='order_book':
+  opts.appkey = 'de504dc5763aeef9ff52' 
+  opts.event = 'data'
+  opts.submitDir = 'order_book'
+if opts.stream=='live_trades':
+  opts.appkey = 'de504dc5763aeef9ff52' 
+  opts.event = 'trade'
+  opts.submitDir = 'ticker'
+if opts.stream=='diff_order_book':
+  opts.appkey = 'de504dc5763aeef9ff52' 
+  opts.event='data'
+  opts.submitDir = 'diff_order_book'
 
 global pusher
 
@@ -23,37 +43,54 @@ def print_usage(filename):
   print("Usage: python %s" % filename)
 
 import pickle
-import pdb
-import numpy
+#import pdb
+#import numpy
+
 def channel_callback(data):
-  time = datetime.now().strftime('%Y_%m_%d_%H_%M_%S')
-  #with open('data_'+time+'.txt', 'w') as outfile:
-  #  json.dump(data, outfile)
   print("Channel Callback: %s" % data)
+
+  timestamp = int(time.time())
+  #print timestamp,d['timestamp'] #they're the same
+  timestamp_rounded = timestamp-timestamp%time_diff #rounded to nearest time_diff seconds
+  if timestamp_rounded not in bigdict: bigdict[timestamp_rounded] = []
+
   d = json.loads(data)
-  bids_prices = [float(d['bids'][i][0]) for i in range(len(d['bids']))]
-  bids_amounts = [float(d['bids'][i][1]) for i in range(len(d['bids']))]
-  asks_prices = [float(d['asks'][i][0]) for i in range(len(d['asks']))]
-  asks_amounts = [float(d['asks'][i][1]) for i in range(len(d['asks']))]
-  new_dict = {'bids_prices':bids_prices,'bids_amounts':bids_amounts,'asks_prices':asks_prices,'asks_amounts':asks_amounts}
-  with open('data_'+time+'.p', 'wb') as outfile:
-    pickle.dump(new_dict, outfile, protocol=pickle.HIGHEST_PROTOCOL)
+  if opts.stream=='order_book':
+    d['timestamp'] = str(timestamp)
+  bigdict[timestamp_rounded].append(d)
 
 def connect_handler(data):
-  channel = pusher.subscribe("order_book")
+  channel = pusher.subscribe(opts.stream)
+  channel.bind(opts.event, channel_callback)
 
-  #channel.bind('my_event', channel_callback)
-  channel.bind('data', channel_callback)
   
-
+from suppress_stdout import suppress_stdout_stderr
 if __name__ == '__main__':
-  appkey = "de504dc5763aeef9ff52"
+  #completely suppress output
+  if opts.quiet:
+    print 'Suppressing all stdout!'
+  with suppress_stdout_stderr(quiet=opts.quiet):
+      #dict every so often
+      time_diff = opts.time_diff
+      timestamp = int(time.time())
+      timestamp_rounded = timestamp-timestamp%time_diff #rounded to nearest time_diff seconds
+      bigdict = {timestamp_rounded:[]}
 
-  pusher = pusherclient.Pusher(appkey)
+      pusher = pusherclient.Pusher(opts.appkey)
 
-  pusher.connection.bind('pusher:connection_established', connect_handler)
-  #pusher.connection.bind('trade', connect_handler)
-  pusher.connect()
+      pusher.connection.bind('pusher:connection_established', connect_handler)
+      #pusher.connection.bind('trade', connect_handler)
+      pusher.connect()
 
-  while True:
-    time.sleep(1)
+      while True:
+        time.sleep(time_diff*2)
+        timestamp = int(time.time())
+        timestamp_rounded = timestamp-timestamp%time_diff #rounded to nearest 10 seconds
+        keys = bigdict.keys()
+        for k in keys:
+          if k<timestamp_rounded:
+              print 'Saving data'
+              print len(bigdict)
+              with open(opts.submitDir+'/data_'+str(k)+'.p', 'wb') as outfile:
+                pickle.dump(bigdict[k], outfile, protocol=pickle.HIGHEST_PROTOCOL)
+              del bigdict[k]
