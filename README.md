@@ -13,6 +13,7 @@ python basic.py [flags]
 ```
 ### Options
 Flag | Options | Description
+--- | --- | ---
 -s,--stream | 'order_book','live_trades','diff_order_book' | Which stream to read
 -t,--time_diff | | How many seconds between each save
 -q,--quiet | | Suppress all stdout
