@@ -61,7 +61,18 @@ def channel_callback(data):
   d = json.loads(data)
   if opts.stream=='order_book':
     d['timestamp'] = str(timestamp)
-  bigdict[timestamp_rounded].append(d)
+  if opts.stream=='order_book' or opts.stream=='diff_order_book':
+    newdict = {k:0 for k in d.keys()}
+    for k in d.keys():
+      if k=='timestamp': newdict[k] = int(d[k])
+      else:
+        newarr = []
+        for val in d[k]:
+          newarr.append([float(val[0]),float(val[1])])
+        newdict[k] = newarr
+    bigdict[timestamp_rounded].append(newdict)
+  else:
+    bigdict[timestamp_rounded].append(newdict)
 
 def connect_handler(data):
   channel = pusher.subscribe(opts.stream)
